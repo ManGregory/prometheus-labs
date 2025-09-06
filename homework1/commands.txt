@@ -1,0 +1,20 @@
+# download, unpack and start prometheus with debug level (just out of curiosity)
+hman@hman-vm:~$ mkdir prometheus
+hman@hman-vm:~$ cd prometheus
+hman@hman-vm:~/prometheus$ wget https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz
+hman@hman-vm:~/prometheus$ tar -xvf prometheus-*.tar.gz
+hman@hman-vm:~/prometheus$ cd prometheus-3.5.0.linux-amd64/
+hman@hman-vm:~/prometheus/prometheus-3.5.0.linux-amd64$ vi prometheus.yml
+hman@hman-vm:~/prometheus/prometheus-3.5.0.linux-amd64$ ./prometheus --config.file=prometheus.yml --log.level=debug
+time=2025-08-13T10:24:46.229+03:00 level=INFO source=main.go:1544 msg="updated GOGC" old=100 new=75
+
+# download, unpack and start node_exporter
+hman@hman-vm:~/prometheus$ wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+hman@hman-vm:~/prometheus$ tar -xvf node_*.tar.gz
+hman@hman-vm:~/prometheus$ cd node_exporter-1.9.1.linux-amd64/
+hman@hman-vm:~/prometheus/node_exporter-1.9.1.linux-amd64$ nohup ./node_exporter > output_log 2>&1
+
+# list of availabe metrics for CPU analysis
+node_cpu_guest_seconds_total
+node_cpu_guest_seconds_total
+ - labels - mode, cpu
