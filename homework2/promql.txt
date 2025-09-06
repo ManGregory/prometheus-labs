@@ -1,3 +1,28 @@
-sum(rate(node_cpu_seconds_total[1m])) by (cpu)
+
+# Скільки відсотків процесорного часу було використано на кожному ядрі (без idle)
+(1 - sum(rate(node_cpu_seconds_total{mode="idle"}[1m])) by (cpu)) * 100
+
+# Скільки оперативної пам`яті зараз доступно
 (node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes)*100
+
+# 99 персинтиль часу виконання запиту до /api/v1/query. По суті це означає що 99% кверей які виконує прометеус були швидше ніж оце значення
 histogram_quantile(0.99, rate(prometheus_http_request_duration_seconds_bucket{handler="/api/v1/query"}[5m]))
+
+# різні агрегації за останню годину, скільки в середньому було доступно памяті, мінімально і максимально
+(avg_over_time(node_memory_MemAvailable_bytes[1h]) / node_memory_MemTotal_bytes) * 100
+(min_over_time(node_memory_MemAvailable_bytes[1h]) / node_memory_MemTotal_bytes) * 100
+(max_over_time(node_memory_MemAvailable_bytes[1h]) / node_memory_MemTotal_bytes) * 100
+
+# скільки відсотків ріспонзів на ендпоінт /api/v1/query було менше 1Кб
+(
+    sum(increase(prometheus_http_response_size_bytes_bucket{handler="/api/v1/query",le="1000.0"}[5m])) / 
+    sum(increase(prometheus_http_response_size_bytes_bucket{handler="/api/v1/query",le="+Inf"}[5m]))
+) * 100
+
+# аналогічно, тільки від 1Кб до 10Кб
+(
+    (sum(increase(prometheus_http_response_size_bytes_bucket{handler="/api/v1/query",le="10000.0"}[5m])) - sum(increase(prometheus_http_response_size_bytes_bucket{handler="/api/v1/query",le="1000.0"}[5m]))) / 
+    sum(increase(prometheus_http_response_size_bytes_bucket{handler="/api/v1/query",le="+Inf"}[5m]))
+) * 100
+
+# і так далі, можна побудувати stacked bar, з розподілом розмірів ріспонзів
