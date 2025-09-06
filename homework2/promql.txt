@@ -1,0 +1,3 @@
+sum(rate(node_cpu_seconds_total[1m])) by (cpu)
+(node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes)*100
+histogram_quantile(0.99, rate(prometheus_http_request_duration_seconds_bucket{handler="/api/v1/query"}[5m]))
