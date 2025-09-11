@@ -97,8 +97,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 9,
+        "w": 8,
         "x": 0,
         "y": 1
       },
@@ -130,6 +130,77 @@
       ],
       "title": "CPU Usage",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "id": 12,
+      "options": {
+        "displayLabels": [
+          "percent",
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(avg by (mode) (rate(node_cpu_seconds_total[$__rate_interval]))) * 100",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage by mode",
+      "type": "piechart"
     },
     {
       "datasource": {
@@ -194,9 +265,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
+        "h": 9,
+        "w": 8,
+        "x": 16,
         "y": 1
       },
       "id": 10,
@@ -236,7 +307,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 10
       },
       "id": 8,
       "panels": [],
@@ -309,7 +380,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 11
       },
       "id": 5,
       "options": {
@@ -408,7 +479,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 11
       },
       "id": 4,
       "options": {
@@ -445,7 +516,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 19
       },
       "id": 7,
       "panels": [],
@@ -539,7 +610,7 @@
         "h": 10,
         "w": 7,
         "x": 0,
-        "y": 19
+        "y": 20
       },
       "id": 11,
       "options": {
@@ -719,7 +790,7 @@
         "h": 10,
         "w": 8,
         "x": 7,
-        "y": 19
+        "y": 20
       },
       "id": 1,
       "options": {
@@ -848,7 +919,7 @@
         "h": 10,
         "w": 9,
         "x": 15,
-        "y": 19
+        "y": 20
       },
       "id": 3,
       "options": {
@@ -936,6 +1007,6 @@
   "timezone": "",
   "title": "TestRunner API Dashboard",
   "uid": "testrunner-api",
-  "version": 9,
+  "version": 10,
   "weekStart": ""
 }
