@@ -1,0 +1,42 @@
+# Install and run cAdvisor via docker:
+docker run -d \
+  --name=cadvisor \
+  --volume=/:/rootfs:ro \
+  --volume=/var/run:/var/run:ro \
+  --volume=/sys:/sys:ro \
+  --volume=/var/lib/docker/:/var/lib/docker:ro \
+  --publish=8080:8080 \
+  --restart=always \
+  gcr.io/cadvisor/cadvisor:v0.47.2
+
+# Run some containers to view some metrics
+azureuser@lab-ubuntu-vm:~/prometheus/prometheus-3.5.0.linux-amd64$ docker ps
+CONTAINER ID   IMAGE                              COMMAND                  CREATED              STATUS                   PORTS                                         NAMES
+74b97c363f50   python:3.9                         "python -c 'import t…"   8 seconds ago        Up 7 seconds                                                           app3
+424d805b0acd   httpd:alpine                       "httpd-foreground"       55 seconds ago       Up 54 seconds            80/tcp                                        app2
+f51fc9a68744   nginx                              "/docker-entrypoint.…"   About a minute ago   Up About a minute        80/tcp                                        app1
+7fadcc1565e3   gcr.io/cadvisor/cadvisor:v0.47.2   "/usr/bin/cadvisor -…"   6 minutes ago        Up 6 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp   cadvisor
+
+# Create targets.yml for service file discovery
+nano targets.yml
+- targets:
+    - "localhost:8080"
+  labels:
+    job: "cAdvisor"
+    type: "from_sd"
+
+# Update prometheus.yml and add service file discovery config    
+  - job_name: 'file-discovery'
+    file_sd_configs:
+      - files:
+          - /home/azureuser/prometheus/prometheus-3.5.0.linux-amd64/targets.yml
+        refresh_interval: 30s
+# The same effect could be probably possible (but with some limitations, e.g. only one file is refreshed) by using custom option when running prometheus
+# --config.auto-reload-interval=30s - Specifies the interval for checking and automatically reloading the Prometheus configuration file upon detecting changes.
+
+# Restart prometheus
+sudo systemctl restart prometheus
+
+# Go to prometheus, check targets. There should be file-discovery target with cAdvisor
+# Run some metric for cpu usage by app name
+rate(container_cpu_usage_seconds_total{name=~"app1|app2|app3"}[1m])
