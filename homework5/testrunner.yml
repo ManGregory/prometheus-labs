@@ -1,0 +1,34 @@
+groups:
+  - name: testrunner-api-alerts
+    rules:
+      # TestRunner API is down
+      - alert: ServiceDown
+        expr: up{job="testrunner-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: testrunner-api
+        annotations:
+          summary: "TestRunner.API is down"
+          description: "TestRunner.API service has been down for more than 1 minute"          
+          runbook: |
+            Fix commands:
+            1. Check container status: docker ps -a | grep testrunner-api
+            2. Restart API: docker-compose restart testrunner-api
+            3. Check logs: docker logs code-lab-api
+            4. If persistent: docker-compose down && docker-compose up -d
+
+      # High Response Time for test run execution
+      - alert: HighResponseTimeTestRun
+        expr: histogram_quantile(0.95, rate(microsoft_aspnetcore_hosting_http_server_request_duration_bucket{job="testrunner-api", http_route="api/TestExecution/run"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected on TestRunner API"
+          description: "95th percentile response time is {{ $value }}s for instance {{ $labels.instance }}"
+          runbook: |
+            Fix commands:
+            1. Check resource usage: docker stats code-lab-api
+            2. Check running tests: curl http://localhost:8080/health
+            3. Restart if needed: docker-compose restart testrunner-api          

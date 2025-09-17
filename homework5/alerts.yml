@@ -1,0 +1,23 @@
+# USE alerts, CPU usage and Memory usage
+groups:
+  - name: weblms-resource-alerts
+    rules:
+    # High memory usage (if available via process metrics)
+    - alert: HighMemoryUsage
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)/node_memory_MemTotal_bytes > 0.7
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage on VM"
+        description: "Memory usage is {{ $value }}MB for instance {{ $labels.instance }}"
+
+    # High CPU usage
+    - alert: HighCPUUsage
+      expr: 1 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m]))) > 0.8
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage on WebLMS API"
+        description: "CPU usage is {{ $value }}% for instance {{ $labels.instance }}"
