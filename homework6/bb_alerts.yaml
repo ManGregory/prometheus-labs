@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: blackbox-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: blackbox.rules
+    rules:
+
+    # 1. Service Down
+    - alert: google-probe-is-down
+      expr: probe_success{instance="https://www.google.com"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Google is down"
+        description: "Google return not 200 status code"
+
+    - alert: google-not-200
+      expr: probe_http_status_code{instance="https://www.google.com", job="probe/monitoring/google-probe", namespace="monitoring"} != 200
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Google return not 200"
+        description: "Google return not 200 status code"
+
+    - alert: rd-down
+      expr: probe_success{instance="https://lms.robotdreams.cc/api/health"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "RobotDreams is down"
+        description: "RobotDreams is down"
+
+    - alert: rd-not-200
+      expr: probe_http_status_code{instance="https://lms.robotdreams.cc/api/health", namespace="monitoring"} != 200
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "RobotDreams return other than 200 code"
+        description: "RobotDreams return other than 200 code"

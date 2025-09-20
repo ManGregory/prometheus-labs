@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: probe-200
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  interval: 30s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-prometheus-blackbox-exporter.monitoring.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+      - https://www.google.com
+      - https://httpbin.org/status/200
