@@ -1,0 +1,70 @@
+# install blackbox to existing cluster
+azureuser@lab-ubuntu-vm:~$ helm -n monitoring upgrade --install prometheus-blackbox prometheus-community/prometheus-blackbox-exporter
+
+# view config 
+azureuser@lab-ubuntu-vm:~$ kubectl -n monitoring get cm prometheus-blackbox-prometheus-blackbox-exporter -o yaml
+apiVersion: v1
+data:
+  blackbox.yaml: |
+    modules:
+      http_2xx:
+        http:
+          follow_redirects: true
+          preferred_ip_protocol: ip4
+          valid_http_versions:
+          - HTTP/1.1
+          - HTTP/2.0
+        prober: http
+        timeout: 5s
+kind: ConfigMap
+metadata:
+  annotations:
+    meta.helm.sh/release-name: prometheus-blackbox
+    meta.helm.sh/release-namespace: monitoring
+  creationTimestamp: "2025-09-20T08:12:07Z"
+  labels:
+    app.kubernetes.io/instance: prometheus-blackbox
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: prometheus-blackbox-exporter
+    app.kubernetes.io/version: v0.27.0
+    helm.sh/chart: prometheus-blackbox-exporter-11.3.1
+  name: prometheus-blackbox-prometheus-blackbox-exporter
+  namespace: monitoring
+  resourceVersion: "6427"
+  uid: ef01f08a-b510-43c6-9e48-4f6f75c90cc4
+
+# apply probe.yaml to create prober using blackbox service. 
+# Probe is part of prometheus operator to use for blackbox monitoring
+# prober here is telling which probe service to use (blackbox in our case)
+# targets - is what url's we want to probe
+azureuser@lab-ubuntu-vm:~$ kubectl apply -f probe.yaml
+probe.monitoring.coreos.com/rd-probe created
+
+# verify probe applied
+azureuser@lab-ubuntu-vm:~$ kubectl -n monitoring get probe rd-probe
+NAME       AGE
+rd-probe   43s
+
+# robotdreams returns always 403 due to cloudflare protection
+# so configure new probe-200.yaml with google and httpbin for testing
+azureuser@lab-ubuntu-vm:~$ kubectl apply -f probe-200.yaml
+probe.monitoring.coreos.com/probe-200 created
+azureuser@lab-ubuntu-vm:~$ kubectl -n monitoring get probe probe-200
+NAME        AGE
+probe-200   33s
+
+# and now this metrics available by /metrics or by specific target /probe?target=https://www.google.com&module=http_2xx"
+# HELP probe_http_duration_seconds Duration of http request by phase, summed over all redirects
+# TYPE probe_http_duration_seconds gauge
+probe_http_duration_seconds{phase="connect"} 0.001261342
+probe_http_duration_seconds{phase="processing"} 0.067388573
+probe_http_duration_seconds{phase="resolve"} 0.009318202
+probe_http_duration_seconds{phase="tls"} 0.020980609
+probe_http_duration_seconds{phase="transfer"} 0.018039085
+
+# apply alert rules 
+azureuser@lab-ubuntu-vm:~$ kubectl apply -f bb_alerts.yaml
+prometheusrule.monitoring.coreos.com/blackbox-alerts created
+
+# and robotdreams alerts are firing
+
