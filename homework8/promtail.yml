@@ -1,0 +1,111 @@
+server:
+  http_listen_port: 9080 # promtail слухає на цьому порту
+  grpc_listen_port: 0
+
+# файл де зберігаються останні зчитанні позиції файлів, щоб уникнути дублювання
+positions:
+  filename: /tmp/positions.yaml
+
+# куди пушати зібрані логи
+# це у нас буде ендпоінт локі
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+# налаштування як і звідки збирати логи
+scrape_configs:
+  # логи з докер контейнерів
+  - job_name: docker-containers
+    # docker service discovery
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s # для контейнерів які створюються динамічно
+    # налаштування лейбов
+    relabel_configs:
+      # залишаємо тільки логи з контейнерів на яких лейба loki=true
+      - source_labels: ['__meta_docker_container_label_loki']
+        regex: 'true'
+        action: keep
+
+      # job=loki_job з контейнера
+      - source_labels: ['__meta_docker_container_label_loki_job']
+        target_label: 'job'
+
+      # тут даємо правильні лейби контейнерам які запущені для моніторінга - grafana, prometheus, loki, node_exporter etc.
+      - source_labels: ['__meta_docker_container_name', '__meta_docker_container_label_loki_job']
+        regex: '.*code-lab-([^/]+);monitoring-stack'
+        target_label: 'service'
+        replacement: '${1}'
+
+      # тут хардкодимо для api контейнера назву
+      - source_labels: ['__meta_docker_container_label_loki_job']
+        regex: 'testrunner-api'
+        target_label: 'service'
+        replacement: 'testrunner-api'
+
+      # container=container_name з докера
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+
+      # instance=container_id з докера
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'instance'
+
+    # парсінг JSON логів з asp .net додатку
+    pipeline_stages:
+      # розкриваємо {} які додає докер щоб отримати логи
+      - docker: {}
+
+      # парсимо логи які записує .net додаток
+      #{
+      #    "Timestamp": "2025-09-27T17:17:39.654Z",
+      #    "EventId": 0,
+      #    "LogLevel": "Debug",
+      #    "Category": "TestRunner.API.Services.DockerExecutionService",
+      #    "Message": "Starting container: 7a32a9c49782"
+      #}      
+      - json:
+          expressions:
+            timestamp: Timestamp
+            level: LogLevel
+            category: Category
+            event_id: EventId
+            message: Message
+            correlation_id: CorrelationId
+
+      # Level & Category - будуть лейбами
+      - labels:
+          level:
+          category:
+
+      # конвертація таймстампів
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+          fallback_formats:
+            - "2006-01-02T15:04:05.000Z"
+            - "2006-01-02T15:04:05.000000Z"
+            - RFC3339Nano
+
+      # Показувати саме меседж а не сирий json
+      - output:
+          source: message
+
+  # Логи убунту з файлової системи
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}) (?P<hostname>\S+) (?P<service>\S+): (?P<message>.*)'
+      - timestamp:
+          source: timestamp
+          format: 'Jan _2 15:04:05'
+          fallback_formats:
+            - 'Jan 2 15:04:05'
+      - labels:
+          hostname:
+          service:
