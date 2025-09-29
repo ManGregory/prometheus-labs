@@ -1,0 +1,201 @@
+// базові налаштування ресівера
+otelcol.receiver.otlp "default" {
+  // порти
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  // обробка відповідно метрік, трейсів і логів
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Батч процесінг
+otelcol.processor.batch "default" {
+  // кільікість айтемів (метрік, спанів, логів)
+  send_batch_size = 1024
+  // або таймаут через секунду
+  timeout = "1s"
+
+  // результат відправляємо далі на обробку
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+    logs    = [otelcol.exporter.loki.default.input]
+  }
+}
+
+// обробка метрік з відправкою в прометеус
+otelcol.exporter.prometheus "default" {
+  // результати відправимо через remote write в prometheus
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  // атрібути в лейби на метріках
+  resource_to_telemetry_conversion = true
+
+  // не додавати зайві суфікси в метрікі
+  add_metric_suffixes = false
+}
+
+// налаштування remote write для прометеус
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+// відправка логів в loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+// налаштування ресівера loki
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// відправка трейсів в темпо
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "http://tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+// налаштування збору логів
+// логи з контейнерів докера
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// налаштування рулів для лейб
+discovery.relabel "loki_containers" {
+  targets = discovery.docker.containers.targets
+
+  // залишаємо тільки контейнери де лейби loki=true
+  rule {
+    source_labels = ["__meta_docker_container_label_loki"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  // job=loki_job з контейнера
+  rule {
+    source_labels = ["__meta_docker_container_label_loki_job"]
+    target_label  = "job"
+  }
+
+  // логі monitoring-stack записуємо під один service
+  rule {
+    source_labels = ["__meta_docker_container_name", "__meta_docker_container_label_loki_job"]
+    regex         = ".*code-lab-([^/]+);monitoring-stack"
+    target_label  = "service"
+    replacement   = "${1}"
+  }
+
+  // хардкодимо service для testrunner-api
+  rule {
+    source_labels = ["__meta_docker_container_label_loki_job"]
+    regex         = "testrunner-api"
+    target_label  = "service"
+    replacement   = "testrunner-api"
+  }
+
+  // хардкодимо service для testrunner-worker
+  rule {
+    source_labels = ["__meta_docker_container_label_loki_job"]
+    regex         = "testrunner-worker"
+    target_label  = "service"
+    replacement   = "testrunner-worker"
+  }
+
+  // якщо якийсь невідомий контейнер - то візьмемо спочатку його loki_job
+  rule {
+    source_labels = ["__meta_docker_container_label_loki_job"]
+    regex         = "(.+)"
+    target_label  = "service"
+    replacement   = "${1}"
+  }
+
+  // якщо якийсь невідомий контейнер і не було loki_job - то візьмемо з лейби container_name
+  rule {
+    source_labels = ["__meta_docker_container_name", "service"]
+    regex         = ".*?([^-/]+).*;$"
+    target_label  = "service"
+    replacement   = "${1}"
+  }
+
+  // container_name = container
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+
+  // container_id = instance
+  rule {
+    source_labels = ["__meta_docker_container_id"]
+    target_label  = "instance"
+  }
+}
+
+// додаткова обробка отриманих логів
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.loki_containers.output
+  forward_to = [loki.process.docker_logs.receiver]
+}
+
+// парсінг JSON логів з .net
+loki.process "docker_logs" {
+  forward_to = [loki.write.default.receiver]
+
+  // прибираємо {} які додає докер
+  stage.docker {}
+
+  // парсимо сам лог
+  stage.json {
+    expressions = {
+      timestamp      = "Timestamp",
+      level         = "LogLevel",
+      category      = "Category",
+      event_id      = "EventId",
+      message       = "Message",
+      correlation_id = "CorrelationId",
+    }
+  }
+
+  // левел і категорія стають лейбами
+  // важливо тут не додавати лейби зі значною кардинальність (наприклад correlation_id)
+  stage.labels {
+    values = {
+      level    = "",
+      category = "",
+    }
+  }
+
+  // конвертація таймстампів
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339"
+    fallback_formats = [
+      "2006-01-02T15:04:05.000Z",
+      "2006-01-02T15:04:05.000000Z",
+      "RFC3339Nano",
+    ]
+  }
+
+  // показувати меседж замість всього json
+  stage.output {
+    source = "message"
+  }
+}
