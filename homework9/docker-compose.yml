@@ -1,0 +1,95 @@
+# файл неповний щоб не нагромождати зайвих деталей, основне виділив коментами і повні конфігурації для alloy & tempo
+
+services:
+  # TestRunner.API - Main application
+  testrunner-api:
+    container_name: code-lab-api
+    labels:
+      - "loki=true"
+      - "loki_job=testrunner-api"
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: code-lab-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    labels:
+      - "loki=true"
+      - "loki_job=monitoring-stack"
+    command:
+      # необхідно щоб був доступний remote write для alloy
+      - '--web.enable-remote-write-receiver'
+    networks:
+      - code-lab-network
+
+  # Grafana Alloy - OpenTelemetry Collector 
+  grafana-alloy:
+    image: grafana/alloy:v1.4.2
+    container_name: code-lab-alloy
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"  # Alloy UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    labels:
+      - "loki=true"
+      - "loki_job=monitoring-stack"
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    networks:
+      - code-lab-network
+    restart: unless-stopped
+    mem_limit: ${ALLOY_MEMORY:-256m}
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # Grafana Tempo
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: code-lab-tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"   # Tempo HTTP API
+      - "${TEMPO_GRPC_PORT:-9095}:9095" # Tempo gRPC API
+    labels:
+      - "loki=true"
+      - "loki_job=monitoring-stack"
+    volumes:
+      - ./monitoring/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/var/tempo
+    command:
+      - '-config.file=/etc/tempo/tempo.yml'
+      # монолітік або сінгл нод
+      - '-target=all'
+    networks:
+      - code-lab-network
+    restart: unless-stopped
+    mem_limit: ${TEMPO_MEMORY:-512m}
+    user: "10001:10001"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+networks:
+  code-lab-network:
+    driver: bridge
+    name: code-lab-network
+
+volumes:
+  tempo-data:
+    driver: local
