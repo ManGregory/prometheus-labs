@@ -1,0 +1,56 @@
+services:
+  # TestRunner.API - Main application
+  testrunner-api:
+    # лейби для локі
+    labels:
+      - "loki=true"
+      - "loki_job=testrunner-api"
+
+  # Loki - агрегація і зберігання логів
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: code-lab-loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    labels:
+      - "loki=true"
+      - "loki_job=monitoring-stack"
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - code-lab-network
+    restart: unless-stopped
+    mem_limit: ${LOKI_MEMORY:-512m}
+    user: "0:0"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Promtail - збір логів
+  promtail:
+    image: grafana/promtail:3.2.1
+    container_name: code-lab-promtail
+    volumes:
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - code-lab-network
+    restart: unless-stopped
+    mem_limit: ${PROMTAIL_MEMORY:-128m}
+    depends_on:
+      - loki
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  loki-data:
+    driver: local
