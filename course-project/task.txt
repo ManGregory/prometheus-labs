@@ -1,0 +1,11 @@
+Create arc diagram:
+* Sources of data (where are metrics/logs/traces)
+* Systems to gather data (proxies, agents, exporters)
+* Systems to store/process (prometheus, loki, tempo, cloud monitor)
+* Visualization and alerts (grafana, alert manager, cloud dashboards)
+Option 3
+Traditional infrastructure: several linux servers and windows sql server
+It's needed to have centralized monitoring solution:
+- load of servers 
+- availability of services
+- alerts in case of problems

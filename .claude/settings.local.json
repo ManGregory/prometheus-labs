@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/US/.claude/subagents/**)",
+      "Bash(if not exist \"C:\\Users\\US\\.claude\\agents\" mkdir \"C:\\Users\\US\\.claude\\agents\")",
+      "Read(//c/Users/US/.claude/agents/**)",
+      "Read(//d/Courses/mentor/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

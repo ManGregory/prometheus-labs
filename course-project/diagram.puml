@@ -1,0 +1,77 @@
+```plantuml
+@startuml
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #999999
+}
+
+skinparam packageStyle rectangle
+
+' Monitoring Infrastructure
+package "Monitoring Infrastructure" {
+    rectangle Grafana #E1F5FF
+    rectangle Prometheus #E1F5FF
+    rectangle AlertManager #E1F5FF
+
+    Grafana -> Prometheus : query
+    Prometheus -> AlertManager : alerts
+}
+
+' Application Infrastructure
+package "Application Infrastructure" {
+    package "Linux Server 1..N" {
+        rectangle "Docker Services" as Docker #FFF4E1
+        rectangle "node_exporter" as NodeExp #E8F5E9
+        rectangle "cAdvisor" as cAdvisor #E8F5E9
+
+        Docker .down.> cAdvisor
+    }
+
+    package "Windows Server" {
+        rectangle "MS SQL Server" as MSSQL #FFF4E1
+        rectangle "windows_exporter" as WinExp #E8F5E9
+        rectangle "prometheus-mssql-exporter" as MSSQLExp #E8F5E9
+
+        MSSQL .down.> MSSQLExp
+    }
+}
+
+' Scraping connections
+Prometheus -down-> NodeExp : scrape
+Prometheus -down-> cAdvisor : scrape
+Prometheus -down-> WinExp : scrape
+Prometheus -down-> MSSQLExp : scrape
+
+' Notes Section
+note bottom
+**Prometheus Target Config**
+    • static_config: stable infrastructure
+    • sd_config: dynamic discovery
+        - file_sd_config, dns_sd_config, http_sd_config
+
+**Main Metrics**
+    • node_*, windows_*: server resources
+    • container_*: application resources and container health
+    • up metric: service availability. If not enough see Blackbox exporter
+    • mssql_*: DB metrics - connections, page r/w, errors, transactions, deadlocks
+
+**AlertManager Config, example alerts**
+    • CPU: > 90% for 5 min
+    • Memory: Available < 10% for 5 min
+    • MS SQL: mssql_connections > threshold for 5 min, deadlock rate > 0 for 1 min
+    • up = 0 for 1 min
+
+**Grafana Config**
+    • Prometheus as primary data source
+    • Linux servers node_exporter metrics dashboard (USE - cpu, memory, network, disk)
+    • Windows servers windows_exporter metrics dashboard (USE - cpu, memory, network, disk)
+    • MS SQL specific metrics (USE/RED, connections, page r/w, errors, transactions, deadlocks)
+    • Service availability and container health (prometheus up, or probe metrics, container health metrics)
+    • App metrics, if available (RED, focused on errors and latency/duration)    
+
+**Optional: Blackbox Exporter**
+    • Probe app availability outside internal network    
+end note
+
+@enduml
+```

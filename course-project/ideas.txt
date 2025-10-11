@@ -1,0 +1,75 @@
+- Source of metrics/logs
+ - Linux, Windows system metrics (CPU, memory, network, disk etc.)
+ - SQL server (specific metrics for db, transactions per second, load cpu, disk, memory swap, heavy sql, undo/redo logs)
+ - Web Applications - not specified, if needed then should be scraped via config
+ - Docker - assume yes, even if only one service per server
+
+- Linux and Windows servers monitoring:
+ - NodeExporter - https://github.com/prometheus/node_exporter
+ - WindowsExporter - https://github.com/prometheus-community/windows_exporter
+
+- SQL server monitoring:
+  - Community exporter - https://github.com/awaragi/prometheus-mssql-exporter
+   - mssql_up 
+   - mssql_connections - active connections
+   - mssql_deadlocks - per second deadlocks
+   - mssql_page_read_total/mssql_page_write_total 
+   - mssql_transactions
+   - mssql_* - memory 
+
+- Availability of services
+ - Just prometheus up
+ - If needed, can be blackbox exporter? - https://github.com/prometheus/blackbox_exporter
+ - Specific metrics per service - if provided by app
+ - In case of docker - cAdvisor for container health - https://github.com/google/cadvisor
+
+- Storage
+ - prometheus
+ - alertmanager 
+ - Loki/Tempo not needed for infrastructure monitoring
+
+- Visualization
+ - grafana
+  - Linux servers node_exporter metrics dashboard (USE - cpu, memory, network, disk)
+  - Windows servers windows_exporter metrics dashboard (USE - cpu, memory, network, disk)
+  - MS SQL specific metrics (USE/RED, connections, page r/w, errors, transactions, deadlocks)
+  - Service availability and container health (prometheus up, or probe metrics, container health metrics)
+  - App metrics, if available (RED, focused on errors and latency/duration)
+  
+
+Deployment
+ Linux servers 1..N - app server running multiple services in docker
+  Server 1 (primary)
+   service1 - instance1
+   service1 - instance2
+   service2 - instance1
+   service2 - instance2
+  Server 2 (backup/secondary)
+   service1 - instance3
+   service1 - instance4
+   service2 - instance3
+   service2 - instance4   
+ Windows Server
+  MS SQL server
+ Internal network 
+
+Monitoring
+ Linux server (monitoring)
+  Prometheus
+   scrape_config
+    option1: static for small and stable infrastructure
+    option2: SD config
+     - file_sd_config
+     - dns_sd_config
+     - http_sd_config
+  AlertManager
+   Routing: default telegram. Severity routing (critical, warning)
+  Grafana  
+   Data Source - prometheus
+ Linux servers (app) 1..N - node_exporter, cAdvisor
+ Windows Server - windows_exporter
+  MS SQL Server - prometheus-mssql-exporter
+
+Approach:
+ Ansible for automated deployment across Windows/Linux
+ Version control for configuration
