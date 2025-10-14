@@ -1,0 +1,214 @@
+# download all providers from related *.tf files
+azureuser@lab-ubuntu-vm:~/homework10$ terraform init
+Initializing the backend...
+Initializing provider plugins...
+- Reusing previous version of tehcyx/kind from the dependency lock file
+- Reusing previous version of hashicorp/kubernetes from the dependency lock file
+- Reusing previous version of hashicorp/helm from the dependency lock file
+- Using previously-installed tehcyx/kind v0.9.0
+- Using previously-installed hashicorp/kubernetes v2.38.0
+- Using previously-installed hashicorp/helm v2.17.0
+
+Terraform has been successfully initialized!
+
+# view what changes terraform will do if run apply
+# terraform has state, so it can compare saved state with changed file and this way prepare subset of changes
+# instead of destorying everything and building again
+azureuser@lab-ubuntu-vm:~/homework10$ terraform plan
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # helm_release.kube_prometheus_stack will be created
+  + resource "helm_release" "kube_prometheus_stack" {
+      + atomic                     = false
+      + chart                      = "kube-prometheus-stack"
+      + cleanup_on_fail            = false
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + manifest                   = (known after apply)
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "kube-prometheus-stack"
+      + namespace                  = "monitoring"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://prometheus-community.github.io/helm-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + timeout                    = 600
+      + values                     = [
+          + <<-EOT
+                "grafana":
+                  "service":
+                    "nodePort": 30080
+                    "type": "NodePort"
+                "prometheus":
+                  "prometheusSpec":
+                    "serviceMonitorSelectorNilUsesHelmValues": false
+                  "service":
+                    "nodePort": 30090
+                    "type": "NodePort"
+            EOT,
+        ]
+      + verify                     = false
+      + version                    = "55.0.1"
+      + wait                       = true
+      + wait_for_jobs              = true
+    }
+
+  # kind_cluster.monitoring will be created
+  + resource "kind_cluster" "monitoring" {
+      + client_certificate     = (known after apply)
+      + client_key             = (known after apply)
+      + cluster_ca_certificate = (known after apply)
+      + completed              = (known after apply)
+      + endpoint               = (known after apply)
+      + id                     = (known after apply)
+      + kubeconfig             = (known after apply)
+      + kubeconfig_path        = (known after apply)
+      + name                   = "monitoring-cluster"
+      + node_image             = (known after apply)
+      + wait_for_ready         = false
+
+      + kind_config {
+          + api_version = "kind.x-k8s.io/v1alpha4"
+          + kind        = "Cluster"
+
+          + node {
+              + role = "control-plane"
+
+              + extra_port_mappings {
+                  + container_port = 30080
+                  + host_port      = 3000
+                  + protocol       = "TCP"
+                }
+              + extra_port_mappings {
+                  + container_port = 30090
+                  + host_port      = 9090
+                  + protocol       = "TCP"
+                }
+            }
+          + node {
+              + role = "worker"
+            }
+          + node {
+              + role = "worker"
+            }
+        }
+    }
+
+  # kubernetes_namespace.monitoring will be created
+  + resource "kubernetes_namespace" "monitoring" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "monitoring"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 3 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + cluster_name    = "monitoring-cluster"
+  + grafana_url     = "http://localhost:3000"
+  + kubeconfig_path = (known after apply)
+  + kubectl_config  = (known after apply)
+  + prometheus_url  = "http://localhost:9090"
+
+# perform actual deploy of resources, apps, services etc.
+# in my case it's creation of kube cluster using kind, control node and two worker nodes
+# then creating kube namespace monitoring
+# then install kube_prometheus_stack using helm on this cluster
+azureuser@lab-ubuntu-vm:~/homework10$ terraform apply
+...
+kind_cluster.monitoring: Creating...
+kind_cluster.monitoring: Still creating... [00m10s elapsed]
+kind_cluster.monitoring: Still creating... [00m20s elapsed]
+kind_cluster.monitoring: Still creating... [00m30s elapsed]
+kind_cluster.monitoring: Still creating... [00m40s elapsed]
+kind_cluster.monitoring: Still creating... [00m50s elapsed]
+kind_cluster.monitoring: Still creating... [01m00s elapsed]
+kind_cluster.monitoring: Still creating... [01m10s elapsed]
+kind_cluster.monitoring: Creation complete after 1m13s [id=monitoring-cluster-]
+kubernetes_namespace.monitoring: Creating...
+kubernetes_namespace.monitoring: Creation complete after 0s [id=monitoring]
+helm_release.kube_prometheus_stack: Creating...
+helm_release.kube_prometheus_stack: Still creating... [00m10s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [00m20s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [00m30s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [00m40s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [00m50s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [01m00s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [01m10s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [01m20s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [01m30s elapsed]
+helm_release.kube_prometheus_stack: Still creating... [01m40s elapsed]
+helm_release.kube_prometheus_stack: Creation complete after 1m41s [id=kube-prometheus-stack]
+
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+cluster_name = "monitoring-cluster"
+grafana_url = "http://localhost:3000"
+kubeconfig_path = "/home/azureuser/homework10/monitoring-cluster-config"
+kubectl_config = "export KUBECONFIG=/home/azureuser/homework10/monitoring-cluster-config"
+prometheus_url = "http://localhost:9090"
+
+# verify created pods
+azureuser@lab-ubuntu-vm:~/homework10$ kubectl get pods -n monitoring
+NAME                                                        READY   STATUS    RESTARTS   AGE
+alertmanager-kube-prometheus-stack-alertmanager-0           2/2     Running   0          97s
+kube-prometheus-stack-grafana-664f7f7d5b-r5jql              3/3     Running   0          107s
+kube-prometheus-stack-kube-state-metrics-6d677d9fdd-twtbc   1/1     Running   0          107s
+kube-prometheus-stack-operator-96cf8779c-cjwg5              1/1     Running   0          107s
+kube-prometheus-stack-prometheus-node-exporter-4k5q4        1/1     Running   0          107s
+kube-prometheus-stack-prometheus-node-exporter-7bxln        1/1     Running   0          107s
+kube-prometheus-stack-prometheus-node-exporter-j57zd        1/1     Running   0          107s
+prometheus-kube-prometheus-stack-prometheus-0               2/2     Running   0          97s
+
+# verify created nodes
+azureuser@lab-ubuntu-vm:~/homework10$ kubectl get nodes
+NAME                               STATUS   ROLES           AGE     VERSION
+monitoring-cluster-control-plane   Ready    control-plane   2m46s   v1.33.1
+monitoring-cluster-worker          Ready    <none>          2m33s   v1.33.1
+monitoring-cluster-worker2         Ready    <none>          2m33s   v1.33.1
+
+# destroy deployment using terraform
+azureuser@lab-ubuntu-vm:~/homework10$ terraform destroy
+kind_cluster.monitoring: Refreshing state... [id=monitoring-cluster-]
+kubernetes_namespace.monitoring: Refreshing state... [id=monitoring]
+helm_release.kube_prometheus_stack: Refreshing state... [id=kube-prometheus-stack]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # helm_release.kube_prometheus_stack will be destroyed
+...
+helm_release.kube_prometheus_stack: Destroying... [id=kube-prometheus-stack]
+helm_release.kube_prometheus_stack: Destruction complete after 3s
+kubernetes_namespace.monitoring: Destroying... [id=monitoring]
+kubernetes_namespace.monitoring: Still destroying... [id=monitoring, 00m10s elapsed]
+kubernetes_namespace.monitoring: Destruction complete after 13s
+kind_cluster.monitoring: Destroying... [id=monitoring-cluster-]
+kind_cluster.monitoring: Destruction complete after 6s
+Destroy complete! Resources: 3 destroyed.
